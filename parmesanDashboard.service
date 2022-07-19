@@ -1,0 +1,13 @@
+[Unit]
+Description=Gunicorn instance to serve parmesan Dashboard
+After=network.target
+
+[Service]
+User=brian
+Group=brian
+WorkingDirectory=/home/brian/Apps/dashboard
+Environment="PATH=/home/brian/Apps/dashboard/venv/bin"
+ExecStart=/home/brian/Apps/dashboard/venv/bin/gunicorn wsgi:app -b 0.0.0.0:51423
+
+[Install]
+WantedBy=multi-user.target

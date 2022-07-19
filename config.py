@@ -5,4 +5,4 @@ URL_PREFIX = ""
 
 # login credentials
 USERNAME = "brian"
-PASSWORD = "1234"
+PASSWORD = "ohfuckfuck@@22"
