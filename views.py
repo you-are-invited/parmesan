@@ -2,6 +2,7 @@ from flask import flash, render_template, session, redirect, request, make_respo
 from wsgi import app
 from config import URL_PREFIX, USERNAME, PASSWORD
 import os
+import re
 
 with open('/etc/hostname', 'r') as f:
     HOSTNAME = f.read()
@@ -22,25 +23,52 @@ def to_login():
 # Login
 @app.route('/')
 def dashboard():
-    # check login status
-    if not logged_in():
-        return to_login()
+    bookmarks={"PirateBay": "https://www.reddit.com/r/ThePirateBays/comments/ruh5g5/the_pirate_bay_proxy_master_list_2022_updated/"}
     # cpu percentage
     cpu_percent = round(float(os.popen("/bin/grep 'cpu ' /proc/stat | /usr/bin/awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage}'").read()))
+    
     # current cpu frequency
     cpu_freq = round(float(os.popen("/bin/cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq").read())/1000000, 2)
+
     # cpu max frequency
     cpu_max = round(float(os.popen("/bin/cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq").read())/1000000, 2)
+
     # cpu temperature
     cpu_temp = round(float(os.popen("/bin/cat /sys/class/thermal/thermal_zone0/temp").read())/1000)
+
     # total/free/used memory
     ram_total = round(int(os.popen("/bin/grep 'MemTotal: ' /proc/meminfo | /usr/bin/awk '{total=$2} END {print total}'").read())/1000)
     ram_free = round(int(os.popen("/bin/grep 'MemAvailable: ' /proc/meminfo | /usr/bin/awk '{free=$2} END {print free}'").read())/1000)
     ram_used = ram_total - ram_free
     ram_percent = round(ram_used / ram_total * 100)
+
+
+    out=os.popen("df /").read()
+    match=re.search("[0-9]+%", out)
+    if None == match:
+        storage_used = 0
+    else:
+        storage_used=int(match.group(0)[:-1])
+    print(f"out {out} match {match}")
+
+    out=os.popen("df /media/jamun/").read()
+    match=re.search("[0-9]+%", out)
+    if None == match:
+        storage_used_jamun = 0
+    else:
+        storage_used_jamun=int(match.group(0)[:-1])
+    print(f"out {out} match {match}")
+    
+    ifconfig_output = os.popen('/sbin/ifconfig').read() 
+    #print(f"ifconfig_output {ifconfig_output} ")
+    local_ip = re.search("wlan0.*[\s]+inet\s[0-9.]+", ifconfig_output)
+    #print(f"local_ip {local_ip}")
+    if None != local_ip:
+        local_ip = local_ip.group(0).split(" ")[-1].strip()
+    #print(f"local_ip {local_ip}")
     # uptime
     up_since = os.popen("/usr/bin/uptime -s").read()
-    up_for = os.popen("/usr/bin/uptime -p").read()
+    up_for = os.popen("/usr/bin/uptime -p").read().replace("up ", "")
     info = {'cpu_percent': cpu_percent,
             'cpu_freq': cpu_freq,
             'cpu_max': cpu_max,
@@ -50,16 +78,15 @@ def dashboard():
             'up_since': up_since,
             'up_for': up_for,
             'cpu_temp': cpu_temp,
+            'storage_used': storage_used,
+            'storage_used_jamun': storage_used_jamun,
             }
-    return render_template('dashboard.html', HOSTNAME=HOSTNAME, info=info, URL_PREFIX=URL_PREFIX, logged_in=logged_in())
+    return render_template('dashboard.html', HOSTNAME=HOSTNAME, info=info, local_ip=local_ip, bookmarks=bookmarks, URL_PREFIX=URL_PREFIX)
 
 
 # Login
 @app.route('/networking/nic-status/')
 def ifconfig():
-    # check login status
-    if not logged_in():
-        return to_login()
     result = os.popen('/sbin/ifconfig')
     response = make_response(result.read())
     response.headers["content-type"] = "text/plain"
@@ -69,10 +96,30 @@ def ifconfig():
 # Login
 @app.route('/system/ps/')
 def ps_list():
+    result = os.popen('/bin/ps -aux')
+    response = make_response(result.read())
+    response.headers["content-type"] = "text/plain"
+    return response
+
+# Reboot
+@app.route('/action/reboot/')
+def reboot():
+    # check login status
+    if not logged_in():
+        return to_login()    
+    result = os.system('sudo reboot -h now')
+    response = make_response(result.read())
+    response.headers["content-type"] = "text/plain"
+    return response
+
+
+# Shutdown
+@app.route('/action/shutdown/')
+def shutdown():
     # check login status
     if not logged_in():
         return to_login()
-    result = os.popen('/bin/ps -aux')
+    result = os.popen('sudo shutdown -h now')
     response = make_response(result.read())
     response.headers["content-type"] = "text/plain"
     return response

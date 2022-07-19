@@ -4,5 +4,5 @@
 URL_PREFIX = ""
 
 # login credentials
-USERNAME = "user"
-PASSWORD = "change_me!"
+USERNAME = "brian"
+PASSWORD = "1234"
